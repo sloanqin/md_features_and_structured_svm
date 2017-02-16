@@ -32,6 +32,29 @@ switch (type)
         samples(:,1:2) = samples(:,1:2) + trans_f * repmat(bb(3:4),n,1) .* (rand(n,2)*2-1);
         samples(:,3:4) = samples(:,3:4) .* opts.scale_factor.^(rand(n,2)*4-2);
         samples(:,3:4) = samples(:,3:4) .* repmat(opts.scale_factor.^(scale_f*rand(n,1)),1,2);
+    case 'radial' % qyy add
+		rstep = double(opts.svm_update_radius)/opts.svm_nr;
+		tstep = 2*pi/opts.svm_nt;
+		radius = [rstep:rstep:opts.svm_update_radius];
+		angle = [0:tstep:2*pi-0.0000001] + repmat([tstep/2,0],[1,opts.svm_nt/2]);
+		dx = [0;reshape(radius' * cos(angle),[],1)];
+		dy = [0;reshape(radius' * sin(angle),[],1)];
+        samples(:,1) = samples(:,1) + dx;
+        samples(:,2) = samples(:,2) + dy;
+        %samples(:,3:4) = samples(:,3:4) .* repmat(opts.scale_factor.^(scale_f*max(-1,min(1,0.5*randn(n,1)))),1,2);
+    case 'pixel' % qyy add
+		dx = [-opts.svm_eval_radius:1:opts.svm_eval_radius];
+		dy = [-opts.svm_eval_radius:1:opts.svm_eval_radius];
+		dx(find(dx==0)) = dx(1); dx(1) = 0; % replace 0 to first place
+		dy(find(dy==0)) = dy(1); dy(1) = 0;
+		dx = reshape(repmat(dx,[1,size(dy,2)]),[],1);
+		dy = reshape(repmat(dy,[size(dy,2),1]),[],1);
+        index =  find((dx(:).*dx(:) + dy(:).*dy(:)) <= opts.svm_eval_radius^2);
+        dx = dx(index);
+        dy = dy(index);
+        samples(:,1) = samples(:,1) + dx;
+        samples(:,2) = samples(:,2) + dy;
+        %samples(:,3:4) = samples(:,3:4) .* repmat(opts.scale_factor.^(scale_f*(rand(n,1)*2-1)),1,2);
     case 'whole'
         range = round([bb(3)/2 bb(4)/2 w-bb(3)/2 h-bb(4)/2]);
         stride = round([bb(3)/5 bb(4)/5]);
@@ -45,11 +68,13 @@ switch (type)
         end
 end
 
+% width and height are limited in [10,w-10],[10,h-10]
 samples(:,3) = max(10,min(w-10,samples(:,3)));
 samples(:,4) = max(10,min(h-10,samples(:,4)));
 
 % [left top width height]
-bb_samples = [samples(:,1)-samples(:,3)/2 samples(:,2)-samples(:,4)/2 samples(:,3:4)];
+% limit left in [-width/2,w-width/2],limit top in [-height/2,h-height/2],ie the center is in the image
+bb_samples = [samples(:,1)-samples(:,3)/2, samples(:,2)-samples(:,4)/2, samples(:,3:4)];
 bb_samples(:,1) = max(1-bb_samples(:,3)/2,min(w-bb_samples(:,3)/2, bb_samples(:,1)));
 bb_samples(:,2) = max(1-bb_samples(:,4)/2,min(h-bb_samples(:,4)/2, bb_samples(:,2)));
 bb_samples = round(bb_samples);

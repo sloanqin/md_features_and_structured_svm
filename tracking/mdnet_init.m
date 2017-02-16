@@ -62,6 +62,16 @@ opts.nSamples = 256;
 opts.trans_f = 0.6; % translation std: mean(width,height)*trans_f/2
 opts.scale_f = 1; % scaling std: scale_factor^(scale_f/2)
 
+% structured svm update sampling policy
+opts.svm_samples = 81;
+opts.svm_nr = 5; % radial kinds
+opts.svm_nt = 16; % angular kinds
+opts.svm_update_radius = 60;
+
+% structured svm eval sampling policy
+opts.svm_eval_radius = 30;
+opts.svm_eval_samples = 2821;
+
 % set image size
 opts.imgSize = size(image);
 
