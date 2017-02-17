@@ -168,7 +168,7 @@ for To = 2:nFrames;
     end
     
     %% Prepare training data
-    if(target_score>0)
+    %if(target_score>0)
         examples = gen_samples('radial', targetLoc, opts.svm_samples, opts, 0.1, 5);
 
 		feat_conv = mdnet_features_convX(net_conv, img, examples, opts);
@@ -178,12 +178,7 @@ for To = 2:nFrames;
         total_data{:,:,3,To} = examples - repmat(targetLoc,[size(examples,1),1]); 
         
         success_frames = [success_frames, To];
-        if(numel(success_frames)>opts.nFrames_long)
-            total_data{success_frames(end-opts.nFrames_long)} = single([]);
-        end
-    else
-        total_data{To} = single([]);
-    end
+    %end
     
     %% structured svm update
 	st_svm_update(To);

@@ -226,7 +226,7 @@ end
 % check if we should remove either sv now
 if (abs(st_svm.supportVectors{sv_ipos,1}.b) < 1e-8)
 	removeSupportVector(sv_ipos);
-	if ( sv_ineg == uint32(size(st_svm.supportVectors,1)) )
+	if ( sv_ineg == (uint32(size(st_svm.supportVectors,1)) + 1) )
 		% ineg and ipos will have been swapped during sv removal
 		sv_ineg = sv_ipos;
 	end	
