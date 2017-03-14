@@ -17,7 +17,7 @@ st_svm.supportVectors = cell(0,1);
 st_svm.kMaxSVs = 2000;
 
 % svmBudgetSize, limit the number of support vectors
-st_svm.svmBudgetSize = 100;
+st_svm.svmBudgetSize = 80;
 
 % kernel matrix
 if st_svm.svmBudgetSize>0

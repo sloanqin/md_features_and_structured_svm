@@ -7,7 +7,7 @@
 
 clear;
 
-conf = genConfig('otb','Basketball');
+conf = genConfig('otb','Biker');
 % conf = genConfig('vot2015','ball1');
 
 switch(conf.dataset)
@@ -19,5 +19,5 @@ switch(conf.dataset)
         net = fullfile('models','mdnet_otb-vot15.mat');
 end
 
-%result = mdstruck_run(conf.imgList, conf.gt(1,:), net);
-result = mdnet_run(conf.imgList, conf.gt(1,:), net);
+result = mdstruck_run(conf.imgList, conf.gt(1,:), net);
+%result = mdnet_run(conf.imgList, conf.gt(1,:), net);

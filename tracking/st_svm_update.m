@@ -24,6 +24,11 @@ supportPattern.svCount = 0;% same with refCount in struck
 % add new support pattern to st_svm's support patterns
 st_svm.supportPatterns = [st_svm.supportPatterns; supportPattern];
 
+% for debug
+if(checkSVs()~=true)
+    fprintf('wrong!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
+end
+
 %
 processNew(x_ind);
 budgetMaintenance();
@@ -205,7 +210,7 @@ sv_pos = st_svm.supportVectors{sv_ipos,1};
 sv_neg = st_svm.supportVectors{sv_ineg,1};
 assert(sv_pos.sp_ind == sv_neg.sp_ind);
 
-if ( abs(sv_pos.g-sv_neg.g) < 1e-5 )
+if ( (sv_pos.g-sv_neg.g) < 1e-5 )
 	% fprintf('skipping SMO')
 else
 	kii = st_svm.m_k(sv_ipos, sv_ipos) + st_svm.m_k(sv_ineg, sv_ineg) - 2*st_svm.m_k(sv_ipos, sv_ineg);
@@ -223,8 +228,23 @@ else
 	end
 end
 
+% for debug
+fprintf('show1,sv_ipos:%d,sv_ineg:%d\n',sv_ipos,sv_ineg);
+fprintf('size(st_svm.supportVectors,1):%d\n',size(st_svm.supportVectors,1));
+fprintf('beta of sv_ipos:%.22f,sv_ineg:%.22f\n',st_svm.supportVectors{sv_ipos,1}.b,st_svm.supportVectors{sv_ineg,1}.b);
+
+% add by qyy,when a sp has only 2 svs and one of them less then 1e-8,delete
+% both of them
+bothDelete = (countSVNumOfSameSP(sv_ipos)<=2 && (abs(st_svm.supportVectors{sv_ipos,1}.b) < 1e-8 || abs(st_svm.supportVectors{sv_ineg,1}.b) < 1e-8));
+
 % check if we should remove either sv now
-if (abs(st_svm.supportVectors{sv_ipos,1}.b) < 1e-8)
+deleteIPos = (countSVNumOfSameSP(sv_ipos)>=3 && (abs(st_svm.supportVectors{sv_ipos,1}.b) < 1e-8) && (sv_ipos ~= findPosBetaSVOfSameSP(sv_ipos)));
+if ( deleteIPos || bothDelete)
+	fprintf('removeSupportVector sv_ipos in function SMOStep,beta>0:%d, beta is %.22f\n',st_svm.supportVectors{sv_ipos,1}.b>0,st_svm.supportVectors{sv_ipos,1}.b);
+    if (st_svm.supportVectors{sv_ipos,1}.b>0)
+        fprintf('!!!!!!!!!!!!!!!!!!supportVectors{sv_ind,1}.b>0 !!!!!!!!!!!!\n');
+    end
+	fprintf('same SP with sv_ipos is %d\n',debugCountSVNumOfSameSP(sv_ipos));
 	removeSupportVector(sv_ipos);
 	if ( sv_ineg == (uint32(size(st_svm.supportVectors,1)) + 1) )
 		% ineg and ipos will have been swapped during sv removal
@@ -233,14 +253,132 @@ if (abs(st_svm.supportVectors{sv_ipos,1}.b) < 1e-8)
 end
 
 % qyy debug
+fprintf('show2,sv_ipos:%d,sv_ineg:%d\n',sv_ipos,sv_ineg);
 %fprintf('size(st_svm.supportVectors,1)=%d\n',size(st_svm.supportVectors,1));
 %fprintf('sv_ineg=%d\n',sv_ineg);
-if (abs(st_svm.supportVectors{sv_ineg,1}.b) < 1e-8)
-	removeSupportVector(sv_ineg);
+deleteINeg = (countSVNumOfSameSP(sv_ineg)>=3 && (abs(st_svm.supportVectors{sv_ineg,1}.b) < 1e-8) && (sv_ineg ~= findPosBetaSVOfSameSP(sv_ineg)));
+if ( deleteINeg || bothDelete)
+	fprintf('removeSupportVector sv_ineg in function SMOStep,beta>0:%d,beta is %.22f\n',st_svm.supportVectors{sv_ineg,1}.b>0,st_svm.supportVectors{sv_ineg,1}.b);
+    fprintf('same SP with sv_ineg is %d\n',debugCountSVNumOfSameSP(sv_ineg));
+  	removeSupportVector(sv_ineg);
 end
 
 end
 
+function [ pos_sv_ind ] = findPosBetaSVOfSameSP(sv_ind)
+% findPosBetaSVOfSameSP
+% find postive beta supportVector of the same supportPattern with sv_ind
+%
+% INPUT:
+%   sv_ind  - index of supportVector
+%
+% OUTPUT:
+%   num - index of supportVector with beta>0
+%
+% Sloan Qin, 2017
+% 
+
+% declare global variables
+global st_svm; 
+pos_sv_ind = -1;
+for k=1:uint32(size(st_svm.supportVectors,1))
+	if ((st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{sv_ind,1}.x_ind) && (st_svm.supportVectors{k,1}.y_ind == 1))
+		pos_sv_ind = k;
+	end
+end
+assert(pos_sv_ind ~= -1);
+return;
+end
+
+function [ num ] = countSVNumOfSameSP(sv_ind)
+% countSVNumOfSameSP
+% count the num of supportVectors for the same supportPattern with supportVector sv_ind
+%
+% INPUT:
+%   sv_ind  - index of supportVector
+%
+% OUTPUT:
+%   num - number of supportVectors,>=1
+%
+% Sloan Qin, 2017
+% 
+
+% declare global variables
+global st_svm; 
+num = 0;
+
+for k=1:uint32(size(st_svm.supportVectors,1))
+	if (st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{sv_ind,1}.x_ind)
+		num = num + 1;
+	end
+end
+return;
+end
+
+function [ num ] = debugCountSVNumOfSameSP(sv_ind)
+% countSVNumOfSameSP
+% count the num of supportVectors for the same supportPattern with supportVector sv_ind
+% this func is designed for debug
+%
+% INPUT:
+%   sv_ind  - index of supportVector
+%
+% OUTPUT:
+%   num - number of supportVectors,>=1
+%
+% Sloan Qin, 2017
+% 
+
+% declare global variables
+global st_svm; 
+num = 0;
+
+fprintf('in func countSVNumOfSameSP,sv_ind is %d,beta is %f, all the sv in same sp is...\n',sv_ind,st_svm.supportVectors{sv_ind,1}.b);
+for k=1:uint32(size(st_svm.supportVectors,1))
+	if (st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{sv_ind,1}.x_ind)
+		num = num + 1;
+		fprintf('sv_ind is %d,beta is %f,',k,st_svm.supportVectors{k,1}.b);
+	end
+end
+fprintf('......\n');
+return;
+end
+
+function [ checkAns ] = checkSVs()
+% checkSVs
+% check whether every sv has a pos sv of same sp
+% this func is designed for debug
+%
+% OUTPUT:
+%   true/false - right/wrong
+%
+% Sloan Qin, 2017
+% 
+
+% declare global variables
+global st_svm; 
+
+for i=1:uint32(size(st_svm.supportVectors,1))
+	if (st_svm.supportVectors{i,1}.b < 0.0)
+		% find corresponding positive sv
+		j = -1;
+        for k=1:uint32(size(st_svm.supportVectors,1))
+            if (st_svm.supportVectors{k,1}.b > 0.0 && st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{i,1}.x_ind)
+				j = k;
+				break;
+            end
+        end
+        
+        if(j==-1)
+            checkAns = false;
+            return;
+        end
+	end
+end
+
+checkAns = true;
+return;
+end
 
 function [ re_loss ] = loss(rect_y1, rect_y2)
 % loss
@@ -318,12 +456,16 @@ for i=1:uint32(size(st_svm.supportVectors,1))
 	if (st_svm.supportVectors{i,1}.b < 0.0)
 		% find corresponding positive sv
 		j = -1;
-		for k=1:uint32(size(st_svm.supportVectors,1))
-			if (st_svm.supportVectors{k,1}.b > 0.0 && st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{i,1}.x_ind)
+        for k=1:uint32(size(st_svm.supportVectors,1))
+            if (st_svm.supportVectors{k,1}.b > 0.0 && st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{i,1}.x_ind)
 				j = k;
 				break;
-			end
-		end
+            end
+        end
+        %for debug
+        fprintf('st_svm.supportVectors size is %d,%d\n',size(st_svm.supportVectors));
+        fprintf('st_svm.m_k size is %d,%d\n',size(st_svm.m_k));
+        fprintf('i and j is %d, %d\n',i,j);
 		val = ((st_svm.supportVectors{i,1}.b)^2) * (st_svm.m_k(i,i) + st_svm.m_k(j,j) - 2.0*st_svm.m_k(i,j));
 		if (val < minVal)
 			minVal = val;
@@ -343,7 +485,8 @@ if (ip == (uint32(size(st_svm.supportVectors,1))+1) )
 		ip = in;
 end
 	
-if (st_svm.supportVectors{ip,1}.b < 1e-8)
+% qyy modified
+if (countSVNumOfSameSP(ip)==1)
 	% also remove positive sv
 	removeSupportVector(ip);
 end

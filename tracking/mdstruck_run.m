@@ -127,7 +127,8 @@ scale_f = opts.scale_f;
 
 %% Main loop
 for To = 2:nFrames;
-    fprintf('Processing frame %d/%d... ', To, nFrames);
+    fprintf('Processing frame %d/%d... \n', To, nFrames);
+	fprintf('supportPatterns/supportVectors is %d/%d... \n', size(st_svm.supportPatterns,1), size(st_svm.supportVectors,1));
     
     img = imread(images{To});
     if(size(img,3)==1), img = cat(3,img,img,img); end
