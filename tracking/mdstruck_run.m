@@ -30,6 +30,8 @@ if(size(img,3)==1), img = cat(3,img,img,img); end
 targetLoc = region;
 result = zeros(nFrames, 4); result(1,:) = targetLoc;
 
+st_svm.firstFrameTargetLoc = targetLoc;
+
 [net_conv, net_fc, opts] = mdnet_init(img, net);
 
 %% Train a bbox regressor
@@ -58,7 +60,7 @@ pos_examples = pos_examples(r>opts.posThr_init,:);
 pos_examples = pos_examples(randsample(end,min(opts.nPos_init,end)),:);
 
 neg_examples = [gen_samples('uniform', targetLoc, opts.nNeg_init, opts, 1, 10);...
-    gen_samples('whole', targetLoc, opts.nNeg_init, opts)];
+gen_samples('whole', targetLoc, opts.nNeg_init, opts)];
 r = overlap_ratio(neg_examples,targetLoc);
 neg_examples = neg_examples(r<opts.negThr_init,:);
 neg_examples = neg_examples(randsample(end,min(opts.nNeg_init,end)),:);
@@ -90,6 +92,9 @@ if display
     text(10,10,'1','Color','y', 'HorizontalAlignment', 'left', 'FontWeight','bold', 'FontSize', 30);
     hold off;
     drawnow;
+    
+    figure(3);
+    set(gcf,'Position',[200 100 600 400],'MenuBar','none','ToolBar','none');
 end
 
 %% Prepare training data for structured svm online update
@@ -119,7 +124,9 @@ total_data{:,:,3,1} = y_rela;
 mdstruck_init();
 
 %% structured svm update
-st_svm_update(1);
+st_svm.x_ind = 0;
+st_svm.targetScores = [st_svm.targetScores;1.0];
+st_svm_update(1, true);
 
 success_frames = 1;
 trans_f = opts.trans_f;	
@@ -129,6 +136,8 @@ scale_f = opts.scale_f;
 for To = 2:nFrames;
     fprintf('Processing frame %d/%d... \n', To, nFrames);
 	fprintf('supportPatterns/supportVectors is %d/%d... \n', size(st_svm.supportPatterns,1), size(st_svm.supportVectors,1));
+    
+    st_svm.x_ind = To;
     
     img = imread(images{To});
     if(size(img,3)==1), img = cat(3,img,img,img); end
@@ -151,6 +160,7 @@ for To = 2:nFrames;
     
     % final target
     result(To,:) = targetLoc;
+    st_svm.targetScores = [st_svm.targetScores;target_score];
     
     % extend search space in case of failure
     if(target_score<0)
@@ -169,8 +179,8 @@ for To = 2:nFrames;
     end
     
     %% Prepare training data
-    %if(target_score>0)
-        examples = gen_samples('radial', targetLoc, opts.svm_samples, opts, 0.1, 5);
+    if(target_score>0)
+        examples = gen_samples('radial', targetLoc, opts.svm_samples, opts, 0.1, 2);
 
 		feat_conv = mdnet_features_convX(net_conv, img, examples, opts);
 		feat_fc4 = mdnet_features_fc4(net_fc, feat_conv, opts);
@@ -179,25 +189,57 @@ for To = 2:nFrames;
         total_data{:,:,3,To} = examples - repmat(targetLoc,[size(examples,1),1]); 
         
         success_frames = [success_frames, To];
-    %end
+    end
     
     %% structured svm update
-	st_svm_update(To);
+    fprintf('target_score is %.12f\n',target_score);
+    whether_process_new = false;
+    if(target_score>0)
+        if(To>50 && mod(To,5)==0)
+            whether_process_new = true;
+        end
+        if(To<=50)
+            whether_process_new = true;
+        end
+    end
+    
+	st_svm_update(To, whether_process_new);
     
     spf = toc(spf);
     fprintf('%f seconds\n',spf);
     
     %% Display
     if display
+        figure(2);%qyy
         hc = get(gca, 'Children'); delete(hc(1:end-1));
         set(hd,'cdata',img); hold on;
         
-        rectangle('Position', result(To,:), 'EdgeColor', [1 0 0], 'Linewidth', 3);
+        rectangle('Position', result(To,:), 'EdgeColor', [1 0 0], 'Linewidth', 1);
+        centerx = result(To-1,1) + result(To-1,3)/2 - opts.svm_eval_radius;
+        centery = result(To-1,2) + result(To-1,4)/2 - opts.svm_eval_radius;
+        rectangle('Position', [centerx,centery,opts.svm_eval_radius*2,opts.svm_eval_radius*2],...
+            'Curvature',[1,1],'EdgeColor', [1 0 0], 'Linewidth', 1);%search circle
         set(gca,'position',[0 0 1 1]);
         
         text(10,10,num2str(To),'Color','y', 'HorizontalAlignment', 'left', 'FontWeight','bold', 'FontSize', 30); 
         hold off;
         drawnow;
+        
+        % sort and display supportvectors
+        supportVectors = cell2mat(st_svm.supportVectors);
+        beta = reshape([supportVectors(:,1).b],[],1);
+        [beta_sorted,index] = sort(beta,'descend');
+        sorted_sVs = supportVectors(index);
+        figure(3);
+        hc = get(gca, 'Children'); delete(hc(1:end));
+        for i=1:min(20,size(sorted_sVs,1))
+            sv = sorted_sVs(i,1);
+            strShow = ['beta:',num2str(sv.b),'  x_ind:',num2str(sv.x_ind)...
+                ,'  y_ind:',num2str(sv.y_ind),'  sp_ind:',num2str(sv.sp_ind)];
+            text(0.1,1.05-i*0.05,strShow,'Color','r', 'HorizontalAlignment', 'left', 'FontWeight','bold', 'FontSize', 10); 
+        end
+        drawnow;
+        
     end
 end
 

@@ -14,6 +14,7 @@ function [ bb_samples ] = gen_samples(type, bb, n, opts, trans_f, scale_f)
 %
 % Hyeonseob Nam, 2015
 % 
+global st_svm;
 
 h = opts.imgSize(1); w = opts.imgSize(2);
 
@@ -35,13 +36,15 @@ switch (type)
     case 'radial' % qyy add
 		rstep = double(opts.svm_update_radius)/opts.svm_nr;
 		tstep = 2*pi/opts.svm_nt;
-		radius = [rstep:rstep:opts.svm_update_radius];
-		angle = [0:tstep:2*pi-0.0000001] + repmat([tstep/2,0],[1,opts.svm_nt/2]);
+		radius = (rstep:rstep:opts.svm_update_radius);
+		angle = (0:tstep:2*pi-0.0000001) + repmat([tstep/2,0],[1,opts.svm_nt/2]);
 		dx = [0;reshape(radius' * cos(angle),[],1)];
 		dy = [0;reshape(radius' * sin(angle),[],1)];
         samples(:,1) = samples(:,1) + dx;
         samples(:,2) = samples(:,2) + dy;
-        %samples(:,3:4) = samples(:,3:4) .* repmat(opts.scale_factor.^(scale_f*max(-1,min(1,0.5*randn(n,1)))),1,2);
+        samples(:,3:4) = samples(:,3:4) .* repmat(opts.scale_factor.^(scale_f*max(-1,min(1,0.5*randn(n,1)))),1,2);
+        samples(:,3) = max(st_svm.firstFrameTargetLoc(3)*0.7, min(st_svm.firstFrameTargetLoc(3)*1.3, samples(:,3)));
+        samples(:,4) = max(st_svm.firstFrameTargetLoc(4)*0.7, min(st_svm.firstFrameTargetLoc(4)*1.3, samples(:,4)));
     case 'pixel' % qyy add
 		dx = [-opts.svm_eval_radius:1:opts.svm_eval_radius];
 		dy = [-opts.svm_eval_radius:1:opts.svm_eval_radius];
@@ -50,11 +53,14 @@ switch (type)
 		dx = reshape(repmat(dx,[1,size(dy,2)]),[],1);
 		dy = reshape(repmat(dy,[size(dy,2),1]),[],1);
         index =  find((dx(:).*dx(:) + dy(:).*dy(:)) <= opts.svm_eval_radius^2);
+        index = index(1:3:size(index,1));
         dx = dx(index);
         dy = dy(index);
         samples(:,1) = samples(:,1) + dx;
         samples(:,2) = samples(:,2) + dy;
-        %samples(:,3:4) = samples(:,3:4) .* repmat(opts.scale_factor.^(scale_f*(rand(n,1)*2-1)),1,2);
+        samples(:,3:4) = samples(:,3:4) .* repmat(opts.scale_factor.^(scale_f*max(-1,min(1,0.5*randn(n,1)))),1,2);
+        samples(:,3) = max(st_svm.firstFrameTargetLoc(3)*0.7, min(st_svm.firstFrameTargetLoc(3)*1.3, samples(:,3)));
+        samples(:,4) = max(st_svm.firstFrameTargetLoc(4)*0.7, min(st_svm.firstFrameTargetLoc(4)*1.3, samples(:,4)));
     case 'whole'
         range = round([bb(3)/2 bb(4)/2 w-bb(3)/2 h-bb(4)/2]);
         stride = round([bb(3)/5 bb(4)/5]);

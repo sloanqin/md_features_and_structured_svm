@@ -69,8 +69,8 @@ opts.svm_nt = 16; % angular kinds
 opts.svm_update_radius = 60;
 
 % structured svm eval sampling policy
-opts.svm_eval_radius = 30;
-opts.svm_eval_samples = 2821;
+opts.svm_eval_radius = 50;
+opts.svm_eval_samples = 2615;%7845;%2821
 
 % set image size
 opts.imgSize = size(image);

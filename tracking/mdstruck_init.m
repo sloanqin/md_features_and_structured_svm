@@ -13,11 +13,14 @@ st_svm.supportPatterns = cell(0,1);
 % for support vectors
 st_svm.supportVectors = cell(0,1);
 
+% save targetScore
+st_svm.targetScores = zeros(0,1);
+
 % max number of support vectors
 st_svm.kMaxSVs = 2000;
 
 % svmBudgetSize, limit the number of support vectors
-st_svm.svmBudgetSize = 80;
+st_svm.svmBudgetSize = 100;
 
 % kernel matrix
 if st_svm.svmBudgetSize>0
@@ -34,6 +37,6 @@ st_svm.kernerl = 'GaussianKernel'; % LinearKernel,GaussianKernel etc
 st_svm.kernerl_m_sigma = 0.2;
 
 % SVM regularization parameter.
-st_svm.svmC = 100.0;
+st_svm.svmC = 10;
 
 end

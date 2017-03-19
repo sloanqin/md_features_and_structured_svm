@@ -180,6 +180,9 @@ for To = 2:nFrames;
         total_neg_data{To} = single([]);
     end
     
+    % qyy
+    fprintf('target_score:%f\n',target_score);
+    
     %% Network update
     if((mod(To,opts.update_interval)==0 || target_score<0) && To~=nFrames)
         fprintf('update network\n')
@@ -189,7 +192,7 @@ for To = 2:nFrames;
             pos_data = cell2mat(total_pos_data(success_frames(max(1,end-opts.nFrames_long+1):end)));
         end
         neg_data = cell2mat(total_neg_data(success_frames(max(1,end-opts.nFrames_short+1):end)));
-        
+        fprintf('pos_data size:%d,%d\n',size(pos_data))%qyy
 %         fprintf('\n');
         [net_fc] = mdnet_finetune_hnm(net_fc,pos_data,neg_data,opts,...
             'maxiter',opts.maxiter_update,'learningRate',opts.learningRate_update);
@@ -203,7 +206,7 @@ for To = 2:nFrames;
         hc = get(gca, 'Children'); delete(hc(1:end-1));
         set(hd,'cdata',img); hold on;
         
-        rectangle('Position', result(To,:), 'EdgeColor', [1 0 0], 'Linewidth', 3);
+        rectangle('Position', result(To,:), 'EdgeColor', [1 0 0], 'Linewidth', 1);
         set(gca,'position',[0 0 1 1]);
         
         text(10,10,num2str(To),'Color','y', 'HorizontalAlignment', 'left', 'FontWeight','bold', 'FontSize', 30); 

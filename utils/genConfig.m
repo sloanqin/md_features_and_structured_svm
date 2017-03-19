@@ -18,14 +18,18 @@ config.seqName = seqName;
 switch(dataset)
     case {'otb'}
         % path to OTB dataset
-        benchmarkSeqHome ='./dataset/OTB/';
-        
+        if(exist('./dataset/OTB/','dir'))
+            benchmarkSeqHome ='./dataset/OTB/';
+        else
+            benchmarkSeqHome ='G:/tracking/datasets/OTB/';%on windows
+        end
+                
         % img path
         switch(config.seqName)
-            case {'Jogging-1', 'Jogging-2'}
-                config.imgDir = fullfile(benchmarkSeqHome, 'Jogging', 'img');
-            case {'Skating2-1', 'Skating2-2'}
-                config.imgDir = fullfile(benchmarkSeqHome, 'Skating2', 'img');
+            case {'jogging-1', 'jogging-2'}
+                config.imgDir = fullfile(benchmarkSeqHome, 'jogging', 'img');
+            case {'skating2-1', 'skating2-2'}
+                config.imgDir = fullfile(benchmarkSeqHome, 'skating2', 'img');
             otherwise
                 config.imgDir = fullfile(benchmarkSeqHome, config.seqName, 'img');
         end
@@ -37,24 +41,26 @@ switch(dataset)
         % parse img list
         config.imgList = parseImg(config.imgDir);
         switch(config.seqName)
-            case 'David'
+            case 'david'
                 config.imgList = config.imgList(300:end);
-            case 'Tiger1'
+            case 'tiger1'
                 config.imgList = config.imgList(6:end);
+%             case 'walking2'
+%                 config.imgList = config.imgList(100:end);
         end
         
         % load gt
         switch(config.seqName)
-            case 'Jogging-1'
-                gtPath = fullfile(benchmarkSeqHome, 'Jogging', 'groundtruth_rect.1.txt');
-            case 'Jogging-2'
-                gtPath = fullfile(benchmarkSeqHome, 'Jogging', 'groundtruth_rect.2.txt');
-            case 'Skating2-1'
-                gtPath = fullfile(benchmarkSeqHome, 'Skating2', 'groundtruth_rect.1.txt');
-            case 'Skating2-2'
-                gtPath = fullfile(benchmarkSeqHome, 'Skating2', 'groundtruth_rect.2.txt');
-            case 'Human4'
-                gtPath = fullfile(benchmarkSeqHome, 'Human4', 'groundtruth_rect.2.txt');
+            case 'jogging-1'
+                gtPath = fullfile(benchmarkSeqHome, 'jogging', 'groundtruth_rect.1.txt');
+            case 'jogging-2'
+                gtPath = fullfile(benchmarkSeqHome, 'jogging', 'groundtruth_rect.2.txt');
+            case 'skating2-1'
+                gtPath = fullfile(benchmarkSeqHome, 'skating2', 'groundtruth_rect.1.txt');
+            case 'skating2-2'
+                gtPath = fullfile(benchmarkSeqHome, 'skating2', 'groundtruth_rect.2.txt');
+            case 'human4'
+                gtPath = fullfile(benchmarkSeqHome, 'human4', 'groundtruth_rect.2.txt');
             otherwise
                 gtPath = fullfile(benchmarkSeqHome, config.seqName, 'groundtruth_rect.txt');
         end
@@ -65,9 +71,9 @@ switch(dataset)
         
         gt = importdata(gtPath);
         switch(config.seqName)
-            case 'Tiger1'
+            case 'tiger1'
                 gt = gt(6:end,:);
-            case {'Board','Twinnings'}
+            case {'board','twinnings'}
                 gt = gt(1:end-1,:);
         end
         config.gt = gt;
@@ -75,6 +81,7 @@ switch(dataset)
         nFrames = min(length(config.imgList), size(config.gt,1));
         config.imgList = config.imgList(1:nFrames);
         config.gt = config.gt(1:nFrames,:);
+        %config.gt = config.gt(100:nFrames,:);%qyy
         
     case {'vot2013','vot2014','vot2015'}
         % path to VOT dataset

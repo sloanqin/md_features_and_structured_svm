@@ -1,4 +1,4 @@
-function st_svm_update(x_ind)
+function st_svm_update(x_ind, whetherProcessNew)
 % structured_svm_update
 % Main interface for structured svm
 %
@@ -16,23 +16,26 @@ function st_svm_update(x_ind)
 % declare global variables
 global st_svm; 
 
-% new support pattern
-supportPattern.x_ind = x_ind;
-supportPattern.yi = 1;
-supportPattern.svCount = 0;% same with refCount in struck
-
-% add new support pattern to st_svm's support patterns
-st_svm.supportPatterns = [st_svm.supportPatterns; supportPattern];
-
 % for debug
 if(checkSVs()~=true)
     fprintf('wrong!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
 end
 
-%
-processNew(x_ind);
-budgetMaintenance();
-	
+% qyy
+if(whetherProcessNew)
+
+    % new support pattern
+    supportPattern.x_ind = x_ind;
+    supportPattern.yi = 1;
+    supportPattern.svCount = 0;% same with refCount in struck
+
+    % add new support pattern to st_svm's support patterns
+    st_svm.supportPatterns = [st_svm.supportPatterns; supportPattern];
+
+    processNew(x_ind);
+    budgetMaintenance();
+end
+
 for i = 1:10
 	reprocess();
 	budgetMaintenance();
@@ -184,6 +187,48 @@ end
 end
 
 
+function [ y_ind, max_grad ] = maxGradient(x_ind)
+% maxGradient
+% find the maxium gradient of a frame
+%
+% INPUT:
+%   x_ind     - The index of frame
+%
+% OUTPUT:
+%   y_ind - the index of y for this frame(x_ind)
+%   max_grad - the maxium grad
+%
+% Sloan Qin, 2017
+% 
+
+% declare global variables
+global total_data;
+
+% res = [y_ind, min_grad]
+y_ind = -1;
+max_grad = -realmax('double');
+
+% all features and examples of this support pattern
+xs = squeeze(total_data{1,1,1,x_ind});
+ys = squeeze(total_data{1,1,2,x_ind});
+y_relas = squeeze(total_data{1,1,3,x_ind});
+
+% xi is at the first place
+xi = xs(:,1);
+yi = ys(1,:);
+
+% traverse all x of this support pattern and compute grad
+% find the minium grad
+for i=1:size(xs,2)
+	grad = -loss(yi,ys(i,:)) - st_svm_evaluate(xs(:,i),y_relas(i,:));
+	if grad>max_grad
+		max_grad = grad;
+		y_ind = i;
+	end
+end
+
+end
+
 function SMOStep(sv_ipos, sv_ineg)
 % SMOStep
 % use SMO algorthim to update belta of svm
@@ -217,7 +262,7 @@ else
 	lu = (sv_pos.g-sv_neg.g)/kii;
 	% no need to clamp against 0 since we'd have skipped in that case
 	% yi_ind == 1
-	l = min(lu, double(st_svm.svmC*uint32(sv_pos.y_ind == 1)) - sv_pos.b);
+	l = min(lu, st_svm.svmC*double(sv_pos.y_ind == 1) - sv_pos.b);
 
 	st_svm.supportVectors{sv_ipos,1}.b = st_svm.supportVectors{sv_ipos,1}.b + l;
 	st_svm.supportVectors{sv_ineg,1}.b = st_svm.supportVectors{sv_ineg,1}.b - l;
@@ -229,9 +274,14 @@ else
 end
 
 % for debug
-fprintf('show1,sv_ipos:%d,sv_ineg:%d\n',sv_ipos,sv_ineg);
-fprintf('size(st_svm.supportVectors,1):%d\n',size(st_svm.supportVectors,1));
-fprintf('beta of sv_ipos:%.22f,sv_ineg:%.22f\n',st_svm.supportVectors{sv_ipos,1}.b,st_svm.supportVectors{sv_ineg,1}.b);
+%fprintf('show1,sv_ipos:%d,sv_ineg:%d\n',sv_ipos,sv_ineg);
+%fprintf('size(st_svm.supportVectors,1):%d\n',size(st_svm.supportVectors,1));
+%fprintf('beta of sv_ipos:%.22f,sv_ineg:%.22f\n',st_svm.supportVectors{sv_ipos,1}.b,st_svm.supportVectors{sv_ineg,1}.b);
+
+% do not remove first sp
+if(countSVNumOfSameSP(sv_ipos)==2 && st_svm.supportVectors{sv_ipos,1}.x_ind==1)
+    return;
+end
 
 % add by qyy,when a sp has only 2 svs and one of them less then 1e-8,delete
 % both of them
@@ -240,11 +290,11 @@ bothDelete = (countSVNumOfSameSP(sv_ipos)<=2 && (abs(st_svm.supportVectors{sv_ip
 % check if we should remove either sv now
 deleteIPos = (countSVNumOfSameSP(sv_ipos)>=3 && (abs(st_svm.supportVectors{sv_ipos,1}.b) < 1e-8) && (sv_ipos ~= findPosBetaSVOfSameSP(sv_ipos)));
 if ( deleteIPos || bothDelete)
-	fprintf('removeSupportVector sv_ipos in function SMOStep,beta>0:%d, beta is %.22f\n',st_svm.supportVectors{sv_ipos,1}.b>0,st_svm.supportVectors{sv_ipos,1}.b);
-    if (st_svm.supportVectors{sv_ipos,1}.b>0)
-        fprintf('!!!!!!!!!!!!!!!!!!supportVectors{sv_ind,1}.b>0 !!!!!!!!!!!!\n');
-    end
-	fprintf('same SP with sv_ipos is %d\n',debugCountSVNumOfSameSP(sv_ipos));
+	%fprintf('removeSupportVector sv_ipos in function SMOStep,beta>0:%d, beta is %.22f\n',st_svm.supportVectors{sv_ipos,1}.b>0,st_svm.supportVectors{sv_ipos,1}.b);
+    %if (st_svm.supportVectors{sv_ipos,1}.b>0)
+        %fprintf('!!!!!!!!!!!!!!!!!!supportVectors{sv_ind,1}.b>0 !!!!!!!!!!!!\n');
+    %end
+	%fprintf('same SP with sv_ipos is %d\n',debugCountSVNumOfSameSP(sv_ipos));
 	removeSupportVector(sv_ipos);
 	if ( sv_ineg == (uint32(size(st_svm.supportVectors,1)) + 1) )
 		% ineg and ipos will have been swapped during sv removal
@@ -253,13 +303,13 @@ if ( deleteIPos || bothDelete)
 end
 
 % qyy debug
-fprintf('show2,sv_ipos:%d,sv_ineg:%d\n',sv_ipos,sv_ineg);
+%fprintf('show2,sv_ipos:%d,sv_ineg:%d\n',sv_ipos,sv_ineg);
 %fprintf('size(st_svm.supportVectors,1)=%d\n',size(st_svm.supportVectors,1));
 %fprintf('sv_ineg=%d\n',sv_ineg);
 deleteINeg = (countSVNumOfSameSP(sv_ineg)>=3 && (abs(st_svm.supportVectors{sv_ineg,1}.b) < 1e-8) && (sv_ineg ~= findPosBetaSVOfSameSP(sv_ineg)));
 if ( deleteINeg || bothDelete)
-	fprintf('removeSupportVector sv_ineg in function SMOStep,beta>0:%d,beta is %.22f\n',st_svm.supportVectors{sv_ineg,1}.b>0,st_svm.supportVectors{sv_ineg,1}.b);
-    fprintf('same SP with sv_ineg is %d\n',debugCountSVNumOfSameSP(sv_ineg));
+	%fprintf('removeSupportVector sv_ineg in function SMOStep,beta>0:%d,beta is %.22f\n',st_svm.supportVectors{sv_ineg,1}.b>0,st_svm.supportVectors{sv_ineg,1}.b);
+    %fprintf('same SP with sv_ineg is %d\n',debugCountSVNumOfSameSP(sv_ineg));
   	removeSupportVector(sv_ineg);
 end
 
@@ -363,7 +413,7 @@ for i=1:uint32(size(st_svm.supportVectors,1))
 		% find corresponding positive sv
 		j = -1;
         for k=1:uint32(size(st_svm.supportVectors,1))
-            if (st_svm.supportVectors{k,1}.b > 0.0 && st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{i,1}.x_ind)
+            if (st_svm.supportVectors{k,1}.y_ind == 1 && st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{i,1}.x_ind)
 				j = k;
 				break;
             end
@@ -457,15 +507,16 @@ for i=1:uint32(size(st_svm.supportVectors,1))
 		% find corresponding positive sv
 		j = -1;
         for k=1:uint32(size(st_svm.supportVectors,1))
-            if (st_svm.supportVectors{k,1}.b > 0.0 && st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{i,1}.x_ind)
+            % qyy,st_svm.supportVectors{k,1}.y_ind==1 is better than st_svm.supportVectors{k,1}.b > 0.0
+            if (st_svm.supportVectors{k,1}.y_ind==1 && st_svm.supportVectors{k,1}.x_ind == st_svm.supportVectors{i,1}.x_ind)
 				j = k;
 				break;
             end
         end
         %for debug
-        fprintf('st_svm.supportVectors size is %d,%d\n',size(st_svm.supportVectors));
-        fprintf('st_svm.m_k size is %d,%d\n',size(st_svm.m_k));
-        fprintf('i and j is %d, %d\n',i,j);
+        %fprintf('st_svm.supportVectors size is %d,%d\n',size(st_svm.supportVectors));
+        %fprintf('st_svm.m_k size is %d,%d\n',size(st_svm.m_k));
+        %fprintf('i and j is %d, %d\n',i,j);
 		val = ((st_svm.supportVectors{i,1}.b)^2) * (st_svm.m_k(i,i) + st_svm.m_k(j,j) - 2.0*st_svm.m_k(i,j));
 		if (val < minVal)
 			minVal = val;
@@ -521,6 +572,83 @@ end
 
 end
 
+function processOldBackup()
+% processOld
+%
+% Sloan Qin, 2017
+% 
+
+% declare global variables
+global st_svm; 
+
+if (size(st_svm.supportPatterns,1) == 0) 
+    return; 
+end
+
+% qyy,choose frame to process
+x_ind = uint32(rand()*st_svm.x_ind);
+if (x_ind==0)
+	x_ind = 1;
+end
+
+if(st_svm.targetScores(x_ind,1)<0)
+    return;
+end
+
+% qyy, find potentially new sv with smallest grad
+addSupportPattern = true;
+ip = -1;
+[ yp_ind, max_grad ] = maxGradient(x_ind);
+for i=1:size(st_svm.supportVectors,1)
+	sv = st_svm.supportVectors{i,1};
+	if (sv.x_ind ~= x_ind) 
+		continue;
+    end
+    addSupportPattern = false;
+	if (sv.y_ind == yp_ind)
+		ip = i;
+		break;
+	end
+end
+
+if(addSupportPattern)
+    fprintf('addSupportPattern...\n');
+    % new support pattern
+    supportPattern.x_ind = x_ind;
+    supportPattern.yi = 1;
+    supportPattern.svCount = 0;% same with refCount in struck
+
+    % add new support pattern to st_svm's support patterns
+    st_svm.supportPatterns = [st_svm.supportPatterns; supportPattern];
+end
+
+if (ip == -1)
+	ip = addSupportVector(x_ind, yp_ind, max_grad);
+end
+
+% find potentially new sv with smallest grad
+[ yn_ind, min_grad ] = minGradient(x_ind);
+in = -1;
+for i=1:size(st_svm.supportVectors,1)
+	sv = st_svm.supportVectors{i,1};
+	if (sv.x_ind ~= x_ind) 
+		continue;
+	end
+	if (sv.y_ind == yn_ind)
+		in = i;
+		break;
+	end
+end
+
+if (in == -1)
+	in = addSupportVector(x_ind, yn_ind, min_grad);
+end
+
+fprintf('in func processOld x_ind:%d,yp_ind:%d,yn_ind:%d,ip:%d,in:%d\n',x_ind,yp_ind,yn_ind,ip,in);
+SMOStep(ip, in);
+
+end
+
 function processOld()
 % processOld
 %
@@ -548,7 +676,7 @@ for i=1:size(st_svm.supportVectors,1)
 		continue;
 	end
 	sv = st_svm.supportVectors{i,1};
-	if (sv.g>maxGrad && sv.b < st_svm.svmC*uint32(sv.y_ind == 1))
+	if (sv.g>maxGrad && sv.b <= st_svm.svmC*double(sv.y_ind == 1))%qyy modified
 		ip = i;
 		maxGrad = sv.g;
 	end
@@ -581,7 +709,6 @@ SMOStep(ip, in);
 
 end
 
-
 function optimize()
 % optimize
 %
@@ -607,10 +734,11 @@ maxGrad = -realmax('double');
 minGrad = realmax('double');
 for i=1:size(st_svm.supportVectors,1) 
 	sv = st_svm.supportVectors{i,1};
-	if (sv.sp_ind ~= ind) 
+    if (sv.sp_ind ~= ind) 
 		continue;
-	end
-	if (sv.g>maxGrad && sv.b<st_svm.svmC*uint32(sv.y_ind==1))
+    end
+	%if (sv.g>maxGrad && sv.b<st_svm.svmC*double(sv.y_ind==1))
+    if (sv.g>maxGrad && sv.b<=st_svm.svmC*double(sv.y_ind==1))%qyy modified
 		ip = i;
 		maxGrad = sv.g;
 	end
@@ -620,6 +748,12 @@ for i=1:size(st_svm.supportVectors,1)
 	end
 end
 
+%debug
+%fprintf('in func optimize,num of sv for same sp is %d,ip is %d,in is %d\n',debugCountSVNumOfSameSP(tempSvInd),ip,in);
+
+if(ip == -1 || in == -1)
+    fprintf('in func optimize ip:%d,in:%d\n',ip,in);
+end
 assert(ip ~= -1 && in ~= -1);
 if (ip == -1 || in == -1)
 	% this shouldn't happen

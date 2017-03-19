@@ -20,11 +20,6 @@ f = 0.0;
 for i=1:size(st_svm.supportVectors,1)
 	sv = st_svm.supportVectors{i,1};
 	sv_x = squeeze(total_data{1,1,1,sv.x_ind}(:,:,:,sv.y_ind));
-    % qyy debug
-    if (size(x) ~= size(sv_x))
-        fprintf('size(x) is %d\n',size(x));
-        fprintf('size(sv_x) is %d\n',size(sv_x));
-    end
 	f = f + sv.b*st_svm_kernel_eval(x,sv_x); % betai*kernel(x,xi)
 end
 

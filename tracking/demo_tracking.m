@@ -7,7 +7,10 @@
 
 clear;
 
-conf = genConfig('otb','Biker');
+algorithmName = 'MDStruck';
+%algorithmName = 'MDNet';
+seqname = 'walking2';
+conf = genConfig('otb',seqname);
 % conf = genConfig('vot2015','ball1');
 
 switch(conf.dataset)
@@ -19,5 +22,22 @@ switch(conf.dataset)
         net = fullfile('models','mdnet_otb-vot15.mat');
 end
 
-result = mdstruck_run(conf.imgList, conf.gt(1,:), net);
-%result = mdnet_run(conf.imgList, conf.gt(1,:), net);
+res = mdstruck_run(conf.imgList, conf.gt(1,:), net);
+%res = mdnet_run(conf.imgList, conf.gt(1,:), net);
+
+%% save result to .mat file
+result.res = res;
+result.fps = -1;
+result.len = length(conf.imgList);
+result.annoBegin = 1;
+result.startFrame = 1;
+result.anno = conf.gt;
+result.type = 'rect';
+	
+if(strcmp(seqname,'david'))
+	result.annoBegin = 300;
+	result.startFrame = 300;
+end
+    
+results{1,1} = result;
+save(['./dataset/result/' seqname '_' algorithmName '.mat'],'results');
