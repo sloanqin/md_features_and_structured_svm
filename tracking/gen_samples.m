@@ -37,7 +37,9 @@ switch (type)
 		rstep = double(opts.svm_update_radius)/opts.svm_nr;
 		tstep = 2*pi/opts.svm_nt;
 		radius = (rstep:rstep:opts.svm_update_radius);
-		angle = (0:tstep:2*pi-0.0000001) + repmat([tstep/2,0],[1,opts.svm_nt/2]);
+		%angle = (0:tstep:2*pi-0.0000001) +
+		%repmat([tstep/2,0],[1,opts.svm_nt/2]);%qyy,i think it's wrong
+        angle = (0:tstep:2*pi-0.0000001);
 		dx = [0;reshape(radius' * cos(angle),[],1)];
 		dy = [0;reshape(radius' * sin(angle),[],1)];
         samples(:,1) = samples(:,1) + dx;

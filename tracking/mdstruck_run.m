@@ -188,6 +188,9 @@ for To = 2:nFrames;
 		total_data{:,:,2,To} = examples;
         total_data{:,:,3,To} = examples - repmat(targetLoc,[size(examples,1),1]); 
         
+        % hard negtive mining
+        st_svm_hnm(To, opts);
+        
         success_frames = [success_frames, To];
     end
     
